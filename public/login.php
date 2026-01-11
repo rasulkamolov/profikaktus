@@ -4,9 +4,9 @@ require_once __DIR__ . '/../src/auth.php';
 
 if (isset($_SESSION['user_id'])) {
     if ($_SESSION['role'] === 'admin') {
-        header('Location: /admin/index.php');
+        header('Location: admin/index.php');
     } else {
-        header('Location: /cutter/index.php');
+        header('Location: cutter/index.php');
     }
     exit;
 }
@@ -30,9 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role'] = $user['role'];
 
             if ($user['role'] === 'admin') {
-                header('Location: /admin/index.php');
+                header('Location: admin/index.php');
             } else {
-                header('Location: /cutter/index.php');
+                header('Location: cutter/index.php');
             }
             exit;
         } else {

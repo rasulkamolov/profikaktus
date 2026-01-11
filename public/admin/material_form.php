@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':i', $image_path, SQLITE3_TEXT);
 
         if ($stmt->execute()) {
-            header('Location: /admin/materials.php');
+            header('Location: materials.php');
             exit;
         } else {
             $error = "Bazaga yozishda xatolik.";

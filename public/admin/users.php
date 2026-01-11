@@ -17,7 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (empty($username) || empty($password)) {
         $error = "Barcha maydonlar to'ldirilishi shart.";
     } else {
-        $check = $db->querySingle("SELECT count(*) FROM users WHERE username = '$username'");
+        $stmt_check = $db->prepare("SELECT count(*) FROM users WHERE username = :u");
+        $stmt_check->bindValue(':u', $username, SQLITE3_TEXT);
+        $check = $stmt_check->execute()->fetchArray(SQLITE3_NUM)[0];
+
         if ($check > 0) {
             $error = "Bu foydalanuvchi nomi band.";
         } else {

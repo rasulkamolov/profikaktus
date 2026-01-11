@@ -4,7 +4,8 @@ session_start();
 
 function require_login() {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: /login.php');
+        // Assuming called from a subdirectory (admin/ or cutter/)
+        header('Location: ../login.php');
         exit;
     }
 }
@@ -14,9 +15,9 @@ function require_role($role) {
     if ($_SESSION['role'] !== $role) {
         // Redirect based on actual role or show error
         if ($_SESSION['role'] === 'admin') {
-            header('Location: /admin/index.php');
+            header('Location: ../admin/index.php');
         } else {
-            header('Location: /cutter/index.php');
+            header('Location: ../cutter/index.php');
         }
         exit;
     }

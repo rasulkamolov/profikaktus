@@ -10,7 +10,7 @@ if (isset($_POST['delete_id'])) {
     $stmt = $db->prepare("DELETE FROM materials WHERE id = :id");
     $stmt->bindValue(':id', $_POST['delete_id'], SQLITE3_INTEGER);
     $stmt->execute();
-    header('Location: /admin/materials.php');
+    header('Location: materials.php');
     exit;
 }
 
@@ -28,7 +28,7 @@ include __DIR__ . '/../../src/templates/header.php';
 
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-900">Materiallar Ro'yxati</h1>
-    <a href="/admin/material_form.php" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+    <a href="material_form.php" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
         Yangi Qo'shish
     </a>
 </div>
@@ -49,7 +49,7 @@ include __DIR__ . '/../../src/templates/header.php';
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <?php if ($row['image_path']): ?>
-                                <img class="h-12 w-12 rounded-full object-cover mr-4" src="/<?php echo htmlspecialchars($row['image_path']); ?>" alt="">
+                                <img class="h-12 w-12 rounded-full object-cover mr-4" src="../<?php echo htmlspecialchars($row['image_path']); ?>" alt="">
                             <?php else: ?>
                                 <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mr-4">
                                     <span class="text-gray-500 text-xs">No img</span>
@@ -73,7 +73,7 @@ include __DIR__ . '/../../src/templates/header.php';
                             </p>
                         </div>
                         <div class="mt-2 flex items-center text-sm sm:mt-0">
-                            <a href="/admin/material_form.php?id=<?php echo $row['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-4">Tahrirlash</a>
+                            <a href="material_form.php?id=<?php echo $row['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-4">Tahrirlash</a>
                             <form method="POST" onsubmit="return confirm('Haqiqatan ham o\'chirmoqchimisiz?');" class="inline">
                                 <input type="hidden" name="delete_id" value="<?php echo $row['id']; ?>">
                                 <button type="submit" class="text-red-600 hover:text-red-900">O'chirish</button>

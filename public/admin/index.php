@@ -27,7 +27,7 @@ include __DIR__ . '/../../src/templates/header.php';
         </div>
         <div class="bg-gray-50 px-4 py-4 sm:px-6">
             <div class="text-sm">
-                <a href="/admin/materials.php" class="font-medium text-indigo-600 hover:text-indigo-500">Barchasini ko'rish</a>
+                <a href="materials.php" class="font-medium text-indigo-600 hover:text-indigo-500">Barchasini ko'rish</a>
             </div>
         </div>
     </div>
@@ -40,7 +40,7 @@ include __DIR__ . '/../../src/templates/header.php';
         </div>
         <div class="bg-gray-50 px-4 py-4 sm:px-6">
             <div class="text-sm">
-                <a href="/admin/reports.php" class="font-medium text-indigo-600 hover:text-indigo-500">Hisobotni ko'rish</a>
+                <a href="reports.php" class="font-medium text-indigo-600 hover:text-indigo-500">Hisobotni ko'rish</a>
             </div>
         </div>
     </div>
@@ -53,7 +53,7 @@ include __DIR__ . '/../../src/templates/header.php';
         </div>
         <div class="bg-gray-50 px-4 py-4 sm:px-6">
             <div class="text-sm">
-                <a href="/admin/reports.php" class="font-medium text-indigo-600 hover:text-indigo-500">Hisobotni ko'rish</a>
+                <a href="reports.php" class="font-medium text-indigo-600 hover:text-indigo-500">Hisobotni ko'rish</a>
             </div>
         </div>
     </div>
@@ -63,10 +63,10 @@ include __DIR__ . '/../../src/templates/header.php';
     <div class="bg-white shadow rounded-lg p-6">
         <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Tezkor Harakatlar</h3>
         <div class="grid grid-cols-2 gap-4">
-            <a href="/admin/material_form.php" class="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+            <a href="material_form.php" class="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
                 Yangi Material Qo'shish
             </a>
-            <a href="/admin/stock.php" class="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200">
+            <a href="stock.php" class="flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200">
                 Omborga Kirim Qilish
             </a>
         </div>
