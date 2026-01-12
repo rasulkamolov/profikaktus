@@ -13,7 +13,11 @@ $receipt = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roll_id = $_POST['roll_id'] ?? null;
     $customer_name = $_POST['customer_name'] ?? '';
-    $length = $_POST['length'] ?? 0;
+
+    // Split M/CM
+    $length_m = (float)($_POST['length_m'] ?? 0);
+    $length_cm = (float)($_POST['length_cm'] ?? 0);
+    $length = $length_m + ($length_cm / 100);
 
     if (!$roll_id || empty($customer_name) || $length <= 0) {
         $error = "Iltimos, barcha ma'lumotlarni to'g'ri kiriting.";
@@ -81,76 +85,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch Materials and their Rolls
-// We want to group rolls by material in the UI or use dynamic fetching.
-// For simplicity, we'll fetch all available rolls joined with material name.
 $rolls_query = "
-    SELECT r.id, r.current_length, m.name, m.width
+    SELECT r.id, r.current_length, r.created_at, m.name, m.width
     FROM rolls r
     JOIN materials m ON r.material_id = m.id
     WHERE r.current_length > 0
-    ORDER BY m.name ASC, r.current_length DESC
+    ORDER BY m.name ASC, r.created_at ASC
 ";
 $rolls = $db->query($rolls_query);
 
 include __DIR__ . '/../../src/templates/header.php';
 ?>
 
-<div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow">
-    <h2 class="text-2xl font-bold mb-6">Material Kesish</h2>
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-200">
+        <div class="px-6 py-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6">Material Kesish</h2>
 
-    <?php if ($message): ?>
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6">
-            <strong class="font-bold">Bajarildi!</strong>
-            <span class="block sm:inline"><?php echo htmlspecialchars($message); ?></span>
+            <?php if ($message): ?>
+                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md mb-6">
+                    <div class="flex items-center mb-2">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        <strong class="font-semibold">Bajarildi!</strong>
+                    </div>
+                    <span class="block"><?php echo htmlspecialchars($message); ?></span>
 
-            <?php if ($receipt): ?>
-            <div class="mt-4 border-t border-green-200 pt-2">
-                <p><strong>Mijoz:</strong> <?php echo htmlspecialchars($receipt['customer']); ?></p>
-                <p><strong>Material:</strong> <?php echo htmlspecialchars($receipt['material']); ?></p>
-                <p><strong>Kesildi:</strong> <?php echo $receipt['length']; ?> m</p>
-                <p><strong>Jami Summa:</strong> <?php echo format_currency($receipt['total']); ?></p>
-            </div>
+                    <?php if ($receipt): ?>
+                    <div class="mt-4 bg-white bg-opacity-60 rounded p-3 text-sm border border-green-200">
+                        <div class="grid grid-cols-2 gap-2">
+                            <span class="text-green-800 font-medium">Mijoz:</span>
+                            <span class="text-green-900"><?php echo htmlspecialchars($receipt['customer']); ?></span>
+
+                            <span class="text-green-800 font-medium">Material:</span>
+                            <span class="text-green-900"><?php echo htmlspecialchars($receipt['material']); ?></span>
+
+                            <span class="text-green-800 font-medium">Kesildi:</span>
+                            <span class="text-green-900"><?php echo $receipt['length']; ?> m</span>
+
+                            <span class="text-green-800 font-medium">Jami Summa:</span>
+                            <span class="text-green-900 font-bold"><?php echo format_currency($receipt['total']); ?></span>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
-        </div>
-    <?php endif; ?>
 
-    <?php if ($error): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
-            <?php echo htmlspecialchars($error); ?>
-        </div>
-    <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <?php echo htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
 
-    <form method="POST">
-        <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2">Rulonni Tanlang (Mavjud)</label>
-            <select name="roll_id" class="block w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline" required>
-                <option value="">-- Tanlang --</option>
-                <?php while ($row = $rolls->fetchArray(SQLITE3_ASSOC)): ?>
-                    <option value="<?php echo $row['id']; ?>">
-                        <?php echo htmlspecialchars($row['name']); ?>
-                        (Qoldiq: <?php echo $row['current_length']; ?> m, Eni: <?php echo $row['width']; ?> sm)
-                    </option>
-                <?php endwhile; ?>
-            </select>
-        </div>
+            <form method="POST" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Rulonni Tanlang (Mavjud)</label>
+                    <div class="relative">
+                        <select name="roll_id" class="block w-full pl-3 pr-10 py-3 text-base border-slate-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md shadow-sm">
+                            <option value="">-- Tanlang --</option>
+                            <?php while ($row = $rolls->fetchArray(SQLITE3_ASSOC)):
+                                $date_badge = date('d-M', strtotime($row['created_at']));
+                            ?>
+                                <option value="<?php echo $row['id']; ?>">
+                                    <?php echo htmlspecialchars($row['name']); ?>
+                                    (Qoldiq: <?php echo $row['current_length']; ?>m | Sana: <?php echo $date_badge; ?>)
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-                <label class="block text-gray-700 font-bold mb-2">Mijoz Ismi / Buyurtma ID</label>
-                <input type="text" name="customer_name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Mijoz ismi" required>
-            </div>
-            <div>
-                <label class="block text-gray-700 font-bold mb-2">Kesish Uzunligi (metr)</label>
-                <input type="number" step="0.01" name="length" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Masalan: 2.5" required>
-            </div>
-        </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Mijoz Ismi / Buyurtma ID</label>
+                    <input type="text" name="customer_name" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md py-3 px-4" placeholder="Mijoz ismi">
+                </div>
 
-        <div class="flex items-center justify-end">
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded focus:outline-none focus:shadow-outline text-lg" type="submit">
-                Kesishni Tasdiqlash
-            </button>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Kesish Uzunligi</label>
+                    <div class="flex space-x-3">
+                        <div class="relative rounded-md shadow-sm flex-1">
+                            <input type="number" name="length_m" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-4 pr-8 py-3" placeholder="0">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm font-medium">m</span>
+                            </div>
+                        </div>
+                        <div class="relative rounded-md shadow-sm flex-1">
+                            <input type="number" name="length_cm" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-4 pr-8 py-3" placeholder="0">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm font-medium">sm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex items-center justify-end">
+                    <button type="submit" class="w-full sm:w-auto inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-lg font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" /></svg>
+                        Kesishni Tasdiqlash
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 
 <?php include __DIR__ . '/../../src/templates/footer.php'; ?>

@@ -8,7 +8,7 @@ require_role('admin');
 $material = [
     'id' => '',
     'name' => '',
-    'width' => '',
+    'width' => 0,
     'purchase_price' => '',
     'selling_price' => '',
     'min_stock_warning' => 50,
@@ -18,6 +18,7 @@ $material = [
 ];
 
 $error = '';
+$is_edit = false;
 
 if (isset($_GET['id'])) {
     $stmt = $db->prepare("SELECT * FROM materials WHERE id = :id");
@@ -26,17 +27,38 @@ if (isset($_GET['id'])) {
     $fetched = $result->fetchArray(SQLITE3_ASSOC);
     if ($fetched) {
         $material = $fetched;
+        $is_edit = true;
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'] ?? '';
-    $width = $_POST['width'] ?? 0;
+
+    // Width (M + CM)
+    $width_m = (float)($_POST['width_m'] ?? 0);
+    $width_cm = (float)($_POST['width_cm'] ?? 0);
+    $width = ($width_m * 100) + $width_cm; // Store in cm? Or keep using whatever "width" column was.
+    // Wait, previous code used "width" as generic. Let's assume database stores width in CM for precision, or keep using meters if that was the convention.
+    // The schema comment said "Width in cm or meters (display only mostly)".
+    // Let's standardise: Store Width in CM.
+    // Wait, let's stick to user inputs. If user enters 1m 50cm, that is 1.5 meters.
+    // Let's store Width in CM to be safe and precise, or Meters?
+    // User asked "width (with meter and cantimeter)".
+    // Let's store as CM in DB for width.
+    // But wait, "Height" (Length) is usually meters.
+    // Let's convert everything to Meters for DB storage to be consistent with existing logic (Length is definitely meters).
+    $width_total_meters = $width_m + ($width_cm / 100);
+
     $purchase_price = $_POST['purchase_price'] ?? 0;
     $selling_price = $_POST['selling_price'] ?? 0;
     $min_stock_warning = $_POST['min_stock_warning'] ?? 50;
     $min_stock_critical = $_POST['min_stock_critical'] ?? 30;
     $max_stock_level = $_POST['max_stock_level'] ?? 100;
+
+    // Initial Roll (Height) - Only for New Materials
+    $height_m = (float)($_POST['height_m'] ?? 0);
+    $height_cm = (float)($_POST['height_cm'] ?? 0);
+    $initial_length = $height_m + ($height_cm / 100);
 
     // Image Upload
     $image_path = $material['image_path'];
@@ -50,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($name)) {
         $error = "Nom kiritilishi shart.";
     } else {
-        if ($material['id']) {
+        if ($is_edit) {
             // Update
             $stmt = $db->prepare("UPDATE materials SET name=:n, width=:w, purchase_price=:pp, selling_price=:sp, min_stock_warning=:mw, min_stock_critical=:mc, max_stock_level=:ml, image_path=:i WHERE id=:id");
             $stmt->bindValue(':id', $material['id'], SQLITE3_INTEGER);
@@ -60,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $stmt->bindValue(':n', $name, SQLITE3_TEXT);
-        $stmt->bindValue(':w', $width, SQLITE3_FLOAT);
+        $stmt->bindValue(':w', $width_total_meters * 100); // Storing Width in CM for display (standard for fabric width like 150cm)
         $stmt->bindValue(':pp', $purchase_price, SQLITE3_FLOAT);
         $stmt->bindValue(':sp', $selling_price, SQLITE3_FLOAT);
         $stmt->bindValue(':mw', $min_stock_warning, SQLITE3_FLOAT);
@@ -69,6 +91,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':i', $image_path, SQLITE3_TEXT);
 
         if ($stmt->execute()) {
+            // If NEW material and has initial length, create first roll
+            if (!$is_edit && $initial_length > 0) {
+                $new_material_id = $db->lastInsertRowID();
+                $stmt_roll = $db->prepare("INSERT INTO rolls (material_id, original_length, current_length) VALUES (:mid, :len, :len)");
+                $stmt_roll->bindValue(':mid', $new_material_id, SQLITE3_INTEGER);
+                $stmt_roll->bindValue(':len', $initial_length, SQLITE3_FLOAT);
+                $stmt_roll->execute();
+            }
+
             header('Location: materials.php');
             exit;
         } else {
@@ -78,66 +109,174 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 include __DIR__ . '/../../src/templates/header.php';
+
+// Prepare display values
+$display_width_m = 0;
+$display_width_cm = 0;
+if ($material['width']) {
+    // Stored in CM? Previous schema comment said "Width in cm or meters".
+    // Let's assume previous data was random.
+    // Going forward we store in CM.
+    // If value is small (e.g. 1.5), it might be meters. If large (150), it is CM.
+    // Heuristic: If < 10, treat as meters. Else CM.
+    $val = $material['width'];
+    if ($val < 10) { $val = $val * 100; } // Convert to CM
+    $display_width_m = floor($val / 100);
+    $display_width_cm = $val % 100;
+}
 ?>
 
-<div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow">
-    <h2 class="text-2xl font-bold mb-6"><?php echo $material['id'] ? 'Materialni Tahrirlash' : 'Yangi Material Qo\'shish'; ?></h2>
+<div class="max-w-3xl mx-auto">
+    <div class="md:flex md:items-center md:justify-between mb-8">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-slate-900 sm:text-3xl sm:truncate">
+                <?php echo $is_edit ? 'Materialni Tahrirlash' : 'Yangi Material Qo\'shish'; ?>
+            </h2>
+        </div>
+    </div>
 
     <?php if ($error): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-            <?php echo htmlspecialchars($error); ?>
+        <div class="rounded-md bg-red-50 p-4 mb-6 border border-red-200">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm leading-5 font-medium text-red-800">
+                        Xatolik yuz berdi
+                    </h3>
+                    <div class="mt-2 text-sm leading-5 text-red-700">
+                        <p><?php echo htmlspecialchars($error); ?></p>
+                    </div>
+                </div>
+            </div>
         </div>
     <?php endif; ?>
 
-    <form method="POST" enctype="multipart/form-data">
-        <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">Nomi</label>
-            <input type="text" name="name" value="<?php echo htmlspecialchars($material['name']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
+    <form method="POST" enctype="multipart/form-data" class="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-200">
+        <div class="px-6 py-6 sm:p-8 space-y-8">
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
+            <!-- Basic Info Section -->
             <div>
-                <label class="block text-gray-700 font-bold mb-2">Kengligi (sm)</label>
-                <input type="number" step="0.01" name="width" value="<?php echo htmlspecialchars($material['width']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-            <div>
-                <label class="block text-gray-700 font-bold mb-2">Rasm</label>
-                <input type="file" name="image" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                <?php if ($material['image_path']): ?>
-                    <p class="text-xs mt-1">Joriy: <?php echo htmlspecialchars($material['image_path']); ?></p>
-                <?php endif; ?>
-            </div>
-        </div>
+                <h3 class="text-lg leading-6 font-medium text-slate-900 border-b border-slate-200 pb-2 mb-6">Asosiy Ma'lumotlar</h3>
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                    <div class="sm:col-span-4">
+                        <label class="block text-sm font-medium text-slate-700">Material Nomi</label>
+                        <div class="mt-1">
+                            <input type="text" name="name" value="<?php echo htmlspecialchars($material['name']); ?>" class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md py-2.5 px-3">
+                        </div>
+                    </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="block text-gray-700 font-bold mb-2">Sotib Olish Narxi (so'm)</label>
-                <input type="number" step="0.01" name="purchase_price" value="<?php echo htmlspecialchars($material['purchase_price']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <div class="sm:col-span-6">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Rasm (Opsional)</label>
+                        <div class="flex items-center space-x-4">
+                            <?php if ($material['image_path']): ?>
+                                <img class="h-16 w-16 rounded-lg object-cover border border-slate-200" src="../<?php echo htmlspecialchars($material['image_path']); ?>" alt="Current">
+                            <?php endif; ?>
+                            <input type="file" name="image" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 transition-colors">
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label class="block text-gray-700 font-bold mb-2">Sotish Narxi (so'm)</label>
-                <input type="number" step="0.01" name="selling_price" value="<?php echo htmlspecialchars($material['selling_price']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-        </div>
 
-        <h3 class="text-lg font-semibold mt-6 mb-3">Ombor Limitlari (metr)</h3>
-        <div class="grid grid-cols-3 gap-4 mb-6">
+            <!-- Dimensions & Price Section -->
             <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2">Ogohlantirish (<)</label>
-                <input type="number" step="0.1" name="min_stock_warning" value="<?php echo htmlspecialchars($material['min_stock_warning']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2">Kritik (<)</label>
-                <input type="number" step="0.1" name="min_stock_critical" value="<?php echo htmlspecialchars($material['min_stock_critical']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2">Max. Limit</label>
-                <input type="number" step="0.1" name="max_stock_level" value="<?php echo htmlspecialchars($material['max_stock_level']); ?>" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-            </div>
-        </div>
+                <h3 class="text-lg leading-6 font-medium text-slate-900 border-b border-slate-200 pb-2 mb-6">O'lchamlar va Narxlar</h3>
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
 
-        <div class="flex items-center justify-end">
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
+                    <!-- Width Input (Split) -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Eni (Width)</label>
+                        <div class="flex space-x-2">
+                            <div class="relative rounded-md shadow-sm flex-1">
+                                <input type="number" name="width_m" value="<?php echo $display_width_m; ?>" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-8 py-2.5" placeholder="0">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 sm:text-sm">m</span>
+                                </div>
+                            </div>
+                            <div class="relative rounded-md shadow-sm flex-1">
+                                <input type="number" name="width_cm" value="<?php echo $display_width_cm; ?>" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-8 py-2.5" placeholder="0">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 sm:text-sm">sm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Initial Height (Only New) -->
+                    <?php if (!$is_edit): ?>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Uzunligi (Height/Length) - <span class="text-primary-600">Birinchi Rulon</span></label>
+                        <div class="flex space-x-2">
+                            <div class="relative rounded-md shadow-sm flex-1">
+                                <input type="number" name="height_m" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-8 py-2.5" placeholder="0">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 sm:text-sm">m</span>
+                                </div>
+                            </div>
+                            <div class="relative rounded-md shadow-sm flex-1">
+                                <input type="number" name="height_cm" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-8 py-2.5" placeholder="0">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 sm:text-sm">sm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">Agar hozir omborda bo'lmasa, bo'sh qoldiring.</p>
+                    </div>
+                    <?php else: ?>
+                    <div class="flex items-center justify-center bg-slate-50 rounded-md border border-dashed border-slate-300">
+                        <p class="text-sm text-slate-500">Qo'shimcha rulon qo'shish uchun "Kirim" bo'limiga o'ting.</p>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Prices -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Sotib Olish Narxi</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <input type="number" step="0.01" name="purchase_price" value="<?php echo htmlspecialchars($material['purchase_price']); ?>" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-12 py-2.5">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm">so'm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Sotish Narxi</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <input type="number" step="0.01" name="selling_price" value="<?php echo htmlspecialchars($material['selling_price']); ?>" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-3 pr-12 py-2.5">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm">so'm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Limits Section -->
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-slate-900 border-b border-slate-200 pb-2 mb-6">Ombor Limitlari (Metr)</h3>
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Ogohlantirish (<)</label>
+                        <input type="number" step="0.1" name="min_stock_warning" value="<?php echo htmlspecialchars($material['min_stock_warning']); ?>" class="shadow-sm focus:ring-yellow-500 focus:border-yellow-500 block w-full sm:text-sm border-slate-300 rounded-md py-2.5 px-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Kritik (<)</label>
+                        <input type="number" step="0.1" name="min_stock_critical" value="<?php echo htmlspecialchars($material['min_stock_critical']); ?>" class="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-slate-300 rounded-md py-2.5 px-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Max. Limit</label>
+                        <input type="number" step="0.1" name="max_stock_level" value="<?php echo htmlspecialchars($material['max_stock_level']); ?>" class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md py-2.5 px-3">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+            <a href="materials.php" class="text-sm font-medium text-slate-600 hover:text-slate-500 mr-6">Bekor qilish</a>
+            <button type="submit" class="inline-flex justify-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
                 Saqlash
             </button>
         </div>

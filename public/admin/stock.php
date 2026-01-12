@@ -11,7 +11,11 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $material_id = $_POST['material_id'] ?? null;
-    $length = $_POST['length'] ?? 0;
+
+    // Split M/CM inputs
+    $length_m = (float)($_POST['length_m'] ?? 0);
+    $length_cm = (float)($_POST['length_cm'] ?? 0);
+    $length = $length_m + ($length_cm / 100);
 
     if (!$material_id || $length <= 0) {
         $error = "Material tanlang va uzunlikni to'g'ri kiriting.";
@@ -31,43 +35,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/../../src/templates/header.php';
 ?>
 
-<div class="max-w-xl mx-auto bg-white p-6 rounded-lg shadow">
-    <h2 class="text-2xl font-bold mb-6">Omborga Kirim (Yangi Rulon)</h2>
+<div class="max-w-xl mx-auto">
+    <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-200">
+        <div class="px-6 py-8">
+            <h2 class="text-2xl font-bold text-slate-900 mb-6">Omborga Kirim (Yangi Rulon)</h2>
 
-    <?php if ($message): ?>
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
-            <?php echo htmlspecialchars($message); ?>
-        </div>
-    <?php endif; ?>
+            <?php if ($message): ?>
+                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
 
-    <?php if ($error): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-            <?php echo htmlspecialchars($error); ?>
-        </div>
-    <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <?php echo htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
 
-    <form method="POST">
-        <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">Materialni Tanlang</label>
-            <select name="material_id" class="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline">
-                <option value="">-- Tanlang --</option>
-                <?php while ($row = $materials->fetchArray(SQLITE3_ASSOC)): ?>
-                    <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['name']); ?></option>
-                <?php endwhile; ?>
-            </select>
-        </div>
+            <form method="POST" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Materialni Tanlang</label>
+                    <div class="relative">
+                        <select name="material_id" class="block w-full pl-3 pr-10 py-3 text-base border-slate-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md shadow-sm">
+                            <option value="">-- Tanlang --</option>
+                            <?php while ($row = $materials->fetchArray(SQLITE3_ASSOC)): ?>
+                                <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['name']); ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
 
-        <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2">Uzunligi (metr)</label>
-            <input type="number" step="0.01" name="length" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Masalan: 50">
-        </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Rulon Uzunligi (Height)</label>
+                    <div class="flex space-x-3">
+                        <div class="relative rounded-md shadow-sm flex-1">
+                            <input type="number" name="length_m" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-4 pr-8 py-3" placeholder="0">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm font-medium">m</span>
+                            </div>
+                        </div>
+                        <div class="relative rounded-md shadow-sm flex-1">
+                            <input type="number" name="length_cm" class="focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-slate-300 rounded-md pl-4 pr-8 py-3" placeholder="0">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-slate-500 sm:text-sm font-medium">sm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-sm text-slate-500">Yangi rulon alohida saqlanadi va sanasi belgilanadi.</p>
+                </div>
 
-        <div class="flex items-center justify-end">
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
-                Qo'shish
-            </button>
+                <div class="pt-4 flex items-center justify-end">
+                     <button type="submit" class="w-full sm:w-auto inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                        Rulonni Qo'shish
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 
 <?php include __DIR__ . '/../../src/templates/footer.php'; ?>
