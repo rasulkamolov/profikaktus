@@ -20,9 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$material_id || $length <= 0) {
         $error = "Material tanlang va uzunlikni to'g'ri kiriting.";
     } else {
-        $stmt = $db->prepare("INSERT INTO rolls (material_id, original_length, current_length) VALUES (:mid, :len, :len)");
+        // Explicitly set created_at to PHP time (Tashkent)
+        $stmt = $db->prepare("INSERT INTO rolls (material_id, original_length, current_length, created_at) VALUES (:mid, :len, :len, :created_at)");
         $stmt->bindValue(':mid', $material_id, SQLITE3_INTEGER);
         $stmt->bindValue(':len', $length, SQLITE3_FLOAT);
+        $stmt->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
 
         if ($stmt->execute()) {
             $message = "Yangi rulon muvaffaqiyatli qo'shildi.";

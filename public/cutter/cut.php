@@ -49,10 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt->bindValue(':nl', $new_length, SQLITE3_FLOAT);
             $updateStmt->bindValue(':rid', $roll_id, SQLITE3_INTEGER);
 
-            // Record Cut
+            // Record Cut - Explicitly set created_at to PHP time (Tashkent)
             $insertStmt = $db->prepare("
-                INSERT INTO cuts (roll_id, material_id, user_id, customer_name, length_cut, price_sold, profit)
-                VALUES (:rid, :mid, :uid, :cn, :lc, :ps, :prof)
+                INSERT INTO cuts (roll_id, material_id, user_id, customer_name, length_cut, price_sold, profit, created_at)
+                VALUES (:rid, :mid, :uid, :cn, :lc, :ps, :prof, :created_at)
             ");
             $insertStmt->bindValue(':rid', $roll_id, SQLITE3_INTEGER);
             $insertStmt->bindValue(':mid', $roll['material_id'], SQLITE3_INTEGER);
@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $insertStmt->bindValue(':lc', $length, SQLITE3_FLOAT);
             $insertStmt->bindValue(':ps', $price_sold, SQLITE3_FLOAT);
             $insertStmt->bindValue(':prof', $profit, SQLITE3_FLOAT);
+            $insertStmt->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
 
             // Execute Transaction (simulate transaction since sqlite3 in php handles auto-commit usually, but ideally wrap in transaction)
             $db->exec('BEGIN TRANSACTION');

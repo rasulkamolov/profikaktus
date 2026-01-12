@@ -39,10 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error = "Bu foydalanuvchi nomi band.";
             } else {
                 $hashed = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $db->prepare("INSERT INTO users (username, password, role) VALUES (:u, :p, :r)");
+                $stmt = $db->prepare("INSERT INTO users (username, password, role, created_at) VALUES (:u, :p, :r, :created_at)");
                 $stmt->bindValue(':u', $username, SQLITE3_TEXT);
                 $stmt->bindValue(':p', $hashed, SQLITE3_TEXT);
                 $stmt->bindValue(':r', $role, SQLITE3_TEXT);
+                $stmt->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
                 if ($stmt->execute()) {
                     $message = "Xodim yaratildi.";
                 } else {

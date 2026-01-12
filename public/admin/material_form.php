@@ -74,11 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         if ($is_edit) {
             // Update
-            $stmt = $db->prepare("UPDATE materials SET name=:n, width=:w, purchase_price=:pp, selling_price=:sp, min_stock_warning=:mw, min_stock_critical=:mc, max_stock_level=:ml, image_path=:i WHERE id=:id");
+            $stmt = $db->prepare("UPDATE materials SET name=:n, width=:w, purchase_price=:pp, selling_price=:sp, min_stock_warning=:mw, min_stock_critical=:mc, max_stock_level=:ml, image_path=:i, created_at=:created_at WHERE id=:id");
             $stmt->bindValue(':id', $material['id'], SQLITE3_INTEGER);
         } else {
             // Insert
-            $stmt = $db->prepare("INSERT INTO materials (name, width, purchase_price, selling_price, min_stock_warning, min_stock_critical, max_stock_level, image_path) VALUES (:n, :w, :pp, :sp, :mw, :mc, :ml, :i)");
+            $stmt = $db->prepare("INSERT INTO materials (name, width, purchase_price, selling_price, min_stock_warning, min_stock_critical, max_stock_level, image_path, created_at) VALUES (:n, :w, :pp, :sp, :mw, :mc, :ml, :i, :created_at)");
         }
 
         $stmt->bindValue(':n', $name, SQLITE3_TEXT);
@@ -89,14 +89,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':mc', $min_stock_critical, SQLITE3_FLOAT);
         $stmt->bindValue(':ml', $max_stock_level, SQLITE3_FLOAT);
         $stmt->bindValue(':i', $image_path, SQLITE3_TEXT);
+        $stmt->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
 
         if ($stmt->execute()) {
             // If NEW material and has initial length, create first roll
             if (!$is_edit && $initial_length > 0) {
                 $new_material_id = $db->lastInsertRowID();
-                $stmt_roll = $db->prepare("INSERT INTO rolls (material_id, original_length, current_length) VALUES (:mid, :len, :len)");
+                $stmt_roll = $db->prepare("INSERT INTO rolls (material_id, original_length, current_length, created_at) VALUES (:mid, :len, :len, :created_at)");
                 $stmt_roll->bindValue(':mid', $new_material_id, SQLITE3_INTEGER);
                 $stmt_roll->bindValue(':len', $initial_length, SQLITE3_FLOAT);
+                $stmt_roll->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
                 $stmt_roll->execute();
             }
 
