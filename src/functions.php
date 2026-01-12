@@ -1,6 +1,9 @@
 <?php
 // src/functions.php
 
+// Set Timezone to Uzbekistan/Tashkent
+date_default_timezone_set('Asia/Tashkent');
+
 function format_currency($amount) {
     return number_format($amount, 0, '.', ' ') . ' UZS';
 }
