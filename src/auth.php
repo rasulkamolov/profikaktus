@@ -23,6 +23,19 @@ function require_role($role) {
     }
 }
 
+function require_any_role($roles = []) {
+    require_login();
+    if (!in_array($_SESSION['role'], $roles)) {
+         // Redirect based on actual role or show error
+         if ($_SESSION['role'] === 'admin') {
+            header('Location: ../admin/index.php');
+        } else {
+            header('Location: ../cutter/index.php');
+        }
+        exit;
+    }
+}
+
 function get_current_user_id() {
     return $_SESSION['user_id'] ?? null;
 }
